@@ -6,7 +6,7 @@
   "scripts": {},
   "repository": {
     "type": "git",
-    "url": "https://github.com/monoku/cordova-plugin-applepay"
+    "url": "https://github.com/monoku/cordova-plugin-applepay-stripe"
   },
   "keywords": [],
   "author": {
