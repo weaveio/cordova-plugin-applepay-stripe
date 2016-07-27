@@ -587,8 +587,10 @@
 
     [Stripe createTokenWithPayment:payment
                         completion:^(STPToken *token, NSError *error) {
-        NSDictionary* response = [self formatPaymentForApplication:payment];
-        [response setObject:token forKey:@"stripeToken"];
+        NSMutableDictionary* response = [self formatPaymentForApplication:payment];
+        if (token) {
+            [response setObject:token forKey:@"stripeToken"];
+        }
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:response];
         [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
     }];
