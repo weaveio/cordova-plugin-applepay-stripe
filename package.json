@@ -3,7 +3,9 @@
   "version": "2.2.3",
   "description": "An adapted Cordova plugin to provide Apple Pay functionality with Stripe integration. Based on cordova-plugin-applepay.",
   "main": "www/applepay.js",
-  "scripts": {},
+  "scripts": {
+    "postinstall": "node ./scripts/link"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/monoku/cordova-plugin-applepay-stripe"
