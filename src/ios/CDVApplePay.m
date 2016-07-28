@@ -19,8 +19,14 @@
     merchantCapabilities = PKMerchantCapability3DS;// PKMerchantCapabilityEMV;
 
     // Stripe Publishable Key
-    NSString * stripePublishableKey = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"StripePublishableKey"];
+#ifndef NDEBUG
+    NSString * stripePublishableKey = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"StripeTestPublishableKey"];
+#else
+    NSString * stripePublishableKey = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"StripeLivePublishableKey"];
+#endif
+    NSLog(@"Stripe stripePublishableKey == %@", stripePublishableKey);
     NSString * appleMerchantIdentifier = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"AppleMerchantIdentifier"];
+    NSLog(@"ApplePay appleMerchantIdentifier == %@", appleMerchantIdentifier);
     [[STPPaymentConfiguration sharedConfiguration] setPublishableKey:stripePublishableKey];
     [[STPPaymentConfiguration sharedConfiguration] setAppleMerchantIdentifier:appleMerchantIdentifier];
 
@@ -378,6 +384,7 @@
 {
     self.paymentCallbackId = command.callbackId;
 
+    NSLog(@"Stripe deviceSupportsApplePay == %s", [Stripe deviceSupportsApplePay] ? "true" : "false");
     NSLog(@"ApplePay canMakePayments == %s", [PKPaymentAuthorizationViewController canMakePayments]? "true" : "false");
     if ([PKPaymentAuthorizationViewController canMakePayments] == NO) {
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
@@ -389,7 +396,9 @@
     self.paymentAuthorizationBlock = nil;
 
     NSString * appleMerchantIdentifier = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"AppleMerchantIdentifier"];
-    PKPaymentRequest *request = [PKPaymentRequest new];
+    // Old version
+    // PKPaymentRequest *request = [PKPaymentRequest new];
+    PKPaymentRequest *request = [Stripe paymentRequestWithMerchantIdentifier:appleMerchantIdentifier];
 
     // Different version of iOS support different networks, (ie Discover card is iOS9+; not part of my project, so ignoring).
     request.supportedNetworks = supportedPaymentNetworks;
@@ -585,11 +594,12 @@
 {
     NSLog(@"CDVApplePay: didAuthorizePayment");
 
-    [Stripe createTokenWithPayment:payment
-                        completion:^(STPToken *token, NSError *error) {
-        NSMutableDictionary* response = [self formatPaymentForApplication:payment];
+    [[STPAPIClient sharedClient] createTokenWithPayment:payment 
+                            completion:^(STPToken * _Nullable token, NSError * _Nullable error) {        
+        NSMutableDictionary* response = [self formatPaymentForApplication:payment];      
+        NSLog(@"Stripe token == %@", token.tokenId);        
         if (token) {
-            [response setObject:token forKey:@"stripeToken"];
+            [response setObject:token.tokenId forKey:@"stripeToken"];
         }
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:response];
         [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];

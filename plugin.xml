@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
            id="cordova-plugin-applepay-stripe"
-      version="2.2.2">
+      version="2.2.3">
 
     <name>Apple Pay with Stripe</name>
     <description>Implements Apple Pay with Stripe.</description>
     <keywords>cordova,payment,apple pay,stripe</keywords>
     <repo>https://github.com/monoku/cordova-plugin-applepay-stripe</repo>
 
-    <preference name="STRIPE_PUBLISHABLE_KEY" />
+    <preference name="STRIPE_LIVE_PUBLISHABLE_KEY" />
+    <preference name="STRIPE_TEST_PUBLISHABLE_KEY" />
     <preference name="APPLE_MERCHANT_IDENTIFIER" />
 
     <platform name="ios">
@@ -28,8 +29,12 @@
 	        </feature>
         </config-file>
 
-        <config-file target="*-Info.plist" parent="StripePublishableKey">
-            <string>$STRIPE_PUBLISHABLE_KEY</string>
+        <config-file target="*-Info.plist" parent="StripeLivePublishableKey">
+            <string>$STRIPE_LIVE_PUBLISHABLE_KEY</string>
+        </config-file>
+
+        <config-file target="*-Info.plist" parent="StripeTestPublishableKey">
+            <string>$STRIPE_TEST_PUBLISHABLE_KEY</string>
         </config-file>
 
         <config-file target="*-Info.plist" parent="AppleMerchantIdentifier">
