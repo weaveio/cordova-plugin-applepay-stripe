@@ -37,7 +37,8 @@
         </config-file>
 
         <!-- Stripe iOS Framework -->
-        <framework src="Stripe" type="podspec" spec=""/>
+        <!-- Downloaded here: https://github.com/stripe/stripe-ios/releases/latest -->
+        <framework src="src/ios/libs/Stripe.framework" custom="true" />
 
     </platform>
 
