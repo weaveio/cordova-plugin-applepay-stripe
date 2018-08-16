@@ -10,7 +10,7 @@ This plugin is integrated to Stripe, if you want an integrated-less plugin you c
 
 ## Installation
 ```
-$ cordova plugin add --save cordova-plugin-applepay-stripe --variable STRIPE_PUBLISHABLE_KEY="pk_live_xxxxxxxxxxxxxxxxxxxxxxxx" --variable APPLE_MERCHANT_IDENTIFIER="merchant.com.yourstoreid"
+$ cordova plugin add --save https://github.com/amindia/cordova-plugin-applepay-stripe.git --variable STRIPE_PUBLISHABLE_KEY="pk_live_xxxxxxxxxxxxxxxxxxxxxxxx" --variable APPLE_MERCHANT_IDENTIFIER="merchant.com.yourstoreid"
 ```
 
 Install the plugin using Cordova 6 and above, which is based on [npm](https://www.npmjs.com/package/cordova-plugin-applepay). The plugin
