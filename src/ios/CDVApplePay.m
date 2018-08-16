@@ -19,11 +19,7 @@
     merchantCapabilities = PKMerchantCapability3DS;// PKMerchantCapabilityEMV;
 
     // Stripe Publishable Key
-#ifndef NDEBUG
-    NSString * stripePublishableKey = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"StripeTestPublishableKey"];
-#else
-    NSString * stripePublishableKey = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"StripeLivePublishableKey"];
-#endif
+    NSString * stripePublishableKey = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"StripePublishableKey"];
     NSLog(@"Stripe stripePublishableKey == %@", stripePublishableKey);
     NSString * appleMerchantIdentifier = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"AppleMerchantIdentifier"];
     NSLog(@"ApplePay appleMerchantIdentifier == %@", appleMerchantIdentifier);

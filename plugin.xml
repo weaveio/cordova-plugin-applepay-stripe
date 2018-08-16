@@ -8,8 +8,7 @@
     <keywords>cordova,payment,apple pay,stripe</keywords>
     <repo>https://github.com/monoku/cordova-plugin-applepay-stripe</repo>
 
-    <preference name="STRIPE_LIVE_PUBLISHABLE_KEY" />
-    <preference name="STRIPE_TEST_PUBLISHABLE_KEY" />
+    <preference name="STRIPE_PUBLISHABLE_KEY" />
     <preference name="APPLE_MERCHANT_IDENTIFIER" />
 
     <platform name="ios">
@@ -29,12 +28,8 @@
 	        </feature>
         </config-file>
 
-        <config-file target="*-Info.plist" parent="StripeLivePublishableKey">
-            <string>$STRIPE_LIVE_PUBLISHABLE_KEY</string>
-        </config-file>
-
-        <config-file target="*-Info.plist" parent="StripeTestPublishableKey">
-            <string>$STRIPE_TEST_PUBLISHABLE_KEY</string>
+        <config-file target="*-Info.plist" parent="StripePublishableKey">
+            <string>$STRIPE_PUBLISHABLE_KEY</string>
         </config-file>
 
         <config-file target="*-Info.plist" parent="AppleMerchantIdentifier">
@@ -42,8 +37,8 @@
         </config-file>
 
         <!-- Stripe iOS Framework -->
-        <!-- Downloaded here: https://github.com/stripe/stripe-ios/releases/latest -->
-        <framework src="src/ios/libs/Stripe.framework" custom="true" />
+        <framework src="Stripe" type="podspec" spec=""/>
+
     </platform>
 
 </plugin>
