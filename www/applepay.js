@@ -48,6 +48,26 @@ var ApplePay = {
         });
 
     },
+    
+    /**
+     * Shows custom confirmation screen then opens the Apple Pay sheet and shows the order information.
+     * @param {Function} [successCallback] - Optional success callback, recieves message object.
+     * @param {Function} [errorCallback] - Optional error callback, recieves message object.
+     * @returns {Promise}
+     */
+    confirmAndMakePaymentRequest: function(order, successCallback, errorCallback) {
+
+        return new Promise(function(resolve, reject) {
+            exec(function(message) {
+                executeCallback(successCallback, message);
+                resolve(message);
+            }, function(message) {
+                executeCallback(errorCallback, message);
+                reject(message);
+            }, 'ApplePay', 'confirmAndMakePaymentRequest', [order]);
+        });
+
+    },
 
     /**
      * While the Apple Pay sheet is still open, and the callback from the `makePaymentRequest` has completed,

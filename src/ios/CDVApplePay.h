@@ -4,7 +4,7 @@
 #import <PassKit/PassKit.h>
 
 typedef void (^ARAuthorizationBlock)(PKPaymentAuthorizationStatus);
-
+//22
 @interface CDVApplePay : CDVPlugin <PKPaymentAuthorizationViewControllerDelegate>
 {
     PKMerchantCapability merchantCapabilities;
