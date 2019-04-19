@@ -461,16 +461,17 @@
         return;
     }
 
-    [self.viewController presentViewController:authVC animated:YES completion:nil];
+    [self.confirmViewController presentViewController:authVC animated:YES completion:nil];
 }
 
 - (void)paymentAuthorizationViewControllerDidFinish:(PKPaymentAuthorizationViewController *)controller
 {
-    [self.viewController dismissViewControllerAnimated:YES completion:^{
+    NSLog(@"paymentAuthorizationViewControllerDidFinish");
+    [self.confirmViewController dismissViewControllerAnimated:YES completion:^{
         [self hideConfirm];
     }];
 
-    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"Payment not completed."];
+    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:NO];
     [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
 }
 
@@ -632,7 +633,7 @@
 
     [[STPAPIClient sharedClient] createTokenWithPayment:payment 
                             completion:^(STPToken * _Nullable token, NSError * _Nullable error) {        
-        NSMutableDictionary* response = [self formatPaymentForApplication:payment];      
+        NSMutableDictionary* response = [self formatPaymentForApplication:payment];
         NSLog(@"Stripe token == %@", token.tokenId);        
         if (token) {
             [response setObject:token.tokenId forKey:@"stripeToken"];
@@ -771,6 +772,7 @@
     self.totalLabel = label;
 
     PKPaymentButton *payButton = [[PKPaymentButton alloc] initWithPaymentButtonType:PKPaymentButtonTypePlain paymentButtonStyle:PKPaymentButtonStyleWhite];
+    [payButton addTarget:self action:@selector(payAction:) forControlEvents:UIControlEventTouchUpInside];
     payButton.layer.cornerRadius = 7.0;
     payButton.layer.borderWidth = 3.0;
     payButton.layer.borderColor = [UIColor blackColor].CGColor;
@@ -784,7 +786,7 @@
                                               [payButton.centerYAnchor constraintEqualToAnchor:payButton.superview.centerYAnchor constant:-50.0]
                                               ]];
 
-    UIBarButtonItem *cancelButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancelAction)];
+    UIBarButtonItem *cancelButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancelAction:)];
     self.navigationItem.leftBarButtonItem = cancelButton;
 }
 
@@ -793,8 +795,12 @@
     self.title = @"Confirm Payment";
 }
 
-- (void)cancelAction {
+- (void)cancelAction: (UIBarButtonItem *)sender {
     [self.delegate SAPConfirmViewControllerDidCancel:self];
+}
+
+- (void)payAction: (UIButton *)sender {
+    [self.delegate SAPConfirmViewControllerDidConfirm:self];
 }
 
 @end
