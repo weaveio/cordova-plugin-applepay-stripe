@@ -2,6 +2,31 @@
 @import AddressBook;
 @import Stripe;
 
+#pragma mark - SAPConfirmViewController interface
+
+@class SAPConfirmViewController;
+@protocol SAPConfirmViewControllerDelegate <NSObject>
+- (void)SAPConfirmViewControllerDidCancel:(SAPConfirmViewController *)controller;
+- (void)SAPConfirmViewControllerDidConfirm:(SAPConfirmViewController *)controller;
+- (void)SAPConfirmViewControllerDidFail:(SAPConfirmViewController *)controller error:(NSError *)error;
+@end
+
+@interface SAPConfirmViewController: UIViewController {}
+
+@property (nonatomic, assign, readonly) double total;
+@property (nonatomic, weak) NSObject<SAPConfirmViewControllerDelegate> *delegate;
+
+- (instancetype)initWithTotal:(double)total;
+
+@end
+
+#pragma mark - CDVApplePay implementation
+
+@interface CDVApplePay () <SAPConfirmViewControllerDelegate>
+@property (nonatomic, strong) SAPConfirmViewController *confirmViewController;
+@property (nonatomic, strong) CDVInvokedUrlCommand *paymentCommand;
+@end
+
 @implementation CDVApplePay
 
 @synthesize paymentCallbackId;
@@ -376,6 +401,17 @@
     }
 }
 
+- (void)confirmAndMakePaymentRequest:(CDVInvokedUrlCommand*)command {
+    double total = 98.34123;
+
+    if (total > 0 && [PKPaymentAuthorizationViewController canMakePayments] == YES) {
+        [self showConfirm:total command:command];
+    } else {
+        CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Cannot make payments"];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+    }
+}
+
 - (void)makePaymentRequest:(CDVInvokedUrlCommand*)command
 {
     self.paymentCallbackId = command.callbackId;
@@ -383,6 +419,7 @@
     NSLog(@"Stripe deviceSupportsApplePay == %s", [Stripe deviceSupportsApplePay] ? "true" : "false");
     NSLog(@"ApplePay canMakePayments == %s", [PKPaymentAuthorizationViewController canMakePayments]? "true" : "false");
     if ([PKPaymentAuthorizationViewController canMakePayments] == NO) {
+        [self hideConfirm];
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
         [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
         return;
@@ -418,6 +455,7 @@
     authVC.delegate = self;
 
     if (authVC == nil) {
+        [self hideConfirm];
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"PKPaymentAuthorizationViewController was nil."];
         [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
         return;
@@ -428,7 +466,9 @@
 
 - (void)paymentAuthorizationViewControllerDidFinish:(PKPaymentAuthorizationViewController *)controller
 {
-    [self.viewController dismissViewControllerAnimated:YES completion:nil];
+    [self.viewController dismissViewControllerAnimated:YES completion:^{
+        [self hideConfirm];
+    }];
 
     CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"Payment not completed."];
     [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
@@ -618,5 +658,143 @@
     return shippingMethod;
 }
 
+
+- (void)showConfirm:(double)total command:(CDVInvokedUrlCommand *)command {
+    self.paymentCommand = command;
+
+    SAPConfirmViewController *controller = [[SAPConfirmViewController alloc] initWithTotal:total];
+    controller.delegate = self;
+    self.confirmViewController = controller;
+
+    __block UINavigationController *navController = [[UINavigationController alloc] initWithRootViewController:controller];
+    __weak CDVApplePay* weakSelf = self;
+
+    // Run later to avoid the "took a long time" log message.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf.viewController presentViewController:navController animated:YES completion:nil];
+    });
+}
+
+- (void)hideConfirm {
+    if (self.confirmViewController == nil) {
+        NSLog(@"Tried to hide controller after it was closed");
+        return;
+    }
+
+    __weak CDVApplePay* weakSelf = self;
+
+    // Run later to avoid the "took a long time" log message.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (weakSelf.confirmViewController != nil) {
+            [weakSelf.viewController dismissViewControllerAnimated:YES completion:nil];
+            weakSelf.confirmViewController = nil;
+            weakSelf.paymentCommand = nil;
+        }
+    });
+}
+
+#pragma mark - SAPConfirmViewControllerDelegate
+
+- (void)SAPConfirmViewControllerDidCancel:(SAPConfirmViewController *)controller {
+    [self hideConfirm];
+
+    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:NO];
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:self.paymentCommand.callbackId];
+}
+
+- (void)SAPConfirmViewControllerDidFail:(SAPConfirmViewController *)controller error:(NSError *)error {
+    [self hideConfirm];
+
+    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:error.localizedDescription];
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:self.paymentCommand.callbackId];
+}
+
+- (void)SAPConfirmViewControllerDidConfirm:(SAPConfirmViewController *)controller {
+//    [self hideConfirm];
+//
+//    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:YES];
+//    [self.commandDelegate sendPluginResult:pluginResult callbackId:self.paymentCommand.callbackId];
+
+    [self makePaymentRequest:self.paymentCommand];
+}
+
+
+@end
+
+
+#pragma mark - SAPConfirmViewController implementation
+
+@interface SAPConfirmViewController () {}
+
+@property (nonatomic, assign, readwrite) double total;
+@property (nonatomic, strong) UILabel *totalLabel;
+
+@end
+
+@implementation  SAPConfirmViewController
+
+- (void)dealloc
+{
+    NSLog(@"SAPConfirmViewController dealloc");
+}
+
+- (instancetype)initWithTotal:(double)total {
+    self = [super init];
+    if (self) {
+        self.total = total;
+        [self createViews];
+    }
+    return self;
+}
+
+- (void)createViews {
+    self.view.backgroundColor = [UIColor colorWithRed:246.0 / 255.0 green:246.0 / 255.0 blue:246.0 / 255.0 alpha:1.0];
+
+    UILabel *label = [[UILabel alloc] initWithFrame:CGRectZero];
+    label.backgroundColor = [UIColor clearColor];
+
+    label.textColor = [UIColor blackColor];
+    label.font = [UIFont systemFontOfSize:35];
+    label.textAlignment = NSTextAlignmentCenter;
+    label.adjustsFontSizeToFitWidth = YES;
+    label.text = [NSString stringWithFormat:@"Total: $%.2f", self.total];
+    [self.view addSubview:label];
+
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    [NSLayoutConstraint activateConstraints:@[
+                                              [label.leadingAnchor constraintGreaterThanOrEqualToAnchor:label.superview.leadingAnchor constant:20.0],
+                                              [label.trailingAnchor constraintLessThanOrEqualToAnchor:label.superview.trailingAnchor constant:20.0],
+                                              [label.topAnchor constraintEqualToAnchor:self.topLayoutGuide.bottomAnchor constant:40.0],
+                                              [label.centerXAnchor constraintEqualToAnchor:label.superview.centerXAnchor]
+                                              ]];
+
+    self.totalLabel = label;
+
+    PKPaymentButton *payButton = [[PKPaymentButton alloc] initWithPaymentButtonType:PKPaymentButtonTypePlain paymentButtonStyle:PKPaymentButtonStyleWhite];
+    payButton.layer.cornerRadius = 7.0;
+    payButton.layer.borderWidth = 3.0;
+    payButton.layer.borderColor = [UIColor blackColor].CGColor;
+    payButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:payButton];
+
+    [NSLayoutConstraint activateConstraints:@[
+                                              [payButton.widthAnchor constraintEqualToConstant:164.0],
+                                              [payButton.heightAnchor constraintEqualToConstant:100.0],
+                                              [payButton.centerXAnchor constraintEqualToAnchor:payButton.superview.centerXAnchor],
+                                              [payButton.centerYAnchor constraintEqualToAnchor:payButton.superview.centerYAnchor constant:-50.0]
+                                              ]];
+
+    UIBarButtonItem *cancelButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancelAction)];
+    self.navigationItem.leftBarButtonItem = cancelButton;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"Confirm Payment";
+}
+
+- (void)cancelAction {
+    [self.delegate SAPConfirmViewControllerDidCancel:self];
+}
 
 @end
