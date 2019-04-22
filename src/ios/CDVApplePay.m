@@ -402,7 +402,12 @@
 }
 
 - (void)confirmAndMakePaymentRequest:(CDVInvokedUrlCommand*)command {
-    double total = 98.34123;
+    NSArray<PKPaymentSummaryItem *> *items = [self itemsFromArguments:command.arguments];
+    double total = 0.0;
+
+    for (PKPaymentSummaryItem *item in items) {
+        total += item.amount.doubleValue;
+    }
 
     if (total > 0 && [PKPaymentAuthorizationViewController canMakePayments] == YES) {
         [self showConfirm:total command:command];
