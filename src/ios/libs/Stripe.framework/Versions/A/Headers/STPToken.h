@@ -8,45 +8,80 @@
 
 #import <Foundation/Foundation.h>
 #import "STPAPIResponseDecodable.h"
-#import "STPSource.h"
+#import "STPSourceProtocol.h"
 
 @class STPCard;
 @class STPBankAccount;
 
 /**
- *  A token returned from submitting payment details to the Stripe API. You should not have to instantiate one of these directly.
+ Possible Token types
  */
-@interface STPToken : NSObject<STPAPIResponseDecodable, STPSource>
+typedef NS_ENUM(NSInteger, STPTokenType) {
+    /**
+     Account token type
+     */
+    STPTokenTypeAccount = 0,
+
+    /**
+     Bank account token type
+     */
+    STPTokenTypeBankAccount,
+
+    /**
+     Card token type
+     */
+    STPTokenTypeCard,
+
+    /**
+     PII token type
+     */
+    STPTokenTypePII,
+
+    /**
+     CVC update token type
+     */
+    STPTokenTypeCVCUpdate,
+};
 
 /**
- *  You cannot directly instantiate an `STPToken`. You should only use one that has been returned from an `STPAPIClient` callback.
+ A token returned from submitting payment details to the Stripe API. You should not have to instantiate one of these directly.
+ */
+@interface STPToken : NSObject<STPAPIResponseDecodable, STPSourceProtocol>
+
+/**
+ You cannot directly instantiate an `STPToken`. You should only use one that has been returned from an `STPAPIClient` callback.
  */
 - (nonnull instancetype) init __attribute__((unavailable("You cannot directly instantiate an STPToken. You should only use one that has been returned from an STPAPIClient callback.")));
 
 /**
- *  The value of the token. You can store this value on your server and use it to make charges and customers. @see
- * https://stripe.com/docs/mobile/ios#sending-tokens
+ The value of the token. You can store this value on your server and use it to make charges and customers. 
+ @see https://stripe.com/docs/charges
  */
 @property (nonatomic, readonly, nonnull) NSString *tokenId;
 
 /**
- *  Whether or not this token was created in livemode. Will be YES if you used your Live Publishable Key, and NO if you used your Test Publishable Key.
+ Whether or not this token was created in livemode. Will be YES if you used your Live Publishable Key, and NO if you used your Test Publishable Key.
  */
 @property (nonatomic, readonly) BOOL livemode;
 
 /**
- *  The credit card details that were used to create the token. Will only be set if the token was created via a credit card or Apple Pay, otherwise it will be
- * nil.
+ The type of this token.
+ */
+@property (nonatomic, readonly) STPTokenType type;
+
+/**
+ The credit card details that were used to create the token. Will only be set if the token was created via a credit card or Apple Pay, otherwise it will be
+ nil.
  */
 @property (nonatomic, readonly, nullable) STPCard *card;
 
 /**
- *  The bank account details that were used to create the token. Will only be set if the token was created with a bank account, otherwise it will be nil.
+ The bank account details that were used to create the token. Will only be set if the token was created with a bank account, otherwise it will be nil.
  */
 @property (nonatomic, readonly, nullable) STPBankAccount *bankAccount;
 
 /**
- *  When the token was created.
+ When the token was created.
  */
 @property (nonatomic, readonly, nullable) NSDate *created;
 
