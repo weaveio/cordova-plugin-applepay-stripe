@@ -390,7 +390,9 @@
     if (self.paymentAuthorizationBlock) {
 
         NSString *paymentAuthorizationStatusString = [command.arguments objectAtIndex:0];
-        NSLog(@"ApplePay completeLastTransaction == %@", paymentAuthorizationStatusString);
+        NSDictionary *intentObject = [command.arguments objectAtIndex:1];
+
+        NSLog(@"ApplePay completeLastTransaction == %@, intentObject = %@", paymentAuthorizationStatusString, intentObject);
 
         PKPaymentAuthorizationStatus paymentAuthorizationStatus = [self paymentAuthorizationStatusFromArgument:paymentAuthorizationStatusString];
         self.paymentAuthorizationBlock(paymentAuthorizationStatus);
