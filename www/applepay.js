@@ -92,7 +92,7 @@ var ApplePay = {
 
 };
 
-// module.exports = ApplePay;
+module.exports.ApplePay = ApplePay;
 
 
 class ApplePayClient {
@@ -138,7 +138,4 @@ class ApplePayClient {
 	}
 }
 
-// module.exports = ApplePayClient;
-
-module.exports.ApplePay = ApplePay;
 module.exports.ApplePayClient = ApplePayClient;
