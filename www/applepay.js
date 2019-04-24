@@ -137,4 +137,4 @@ class ApplePayClient {
 // module.exports = ApplePayClient;
 
 module.exports.ApplePay = ApplePay;
-// module.exports.ApplePayClient = ApplePayClient;
+module.exports.ApplePayClient = ApplePayClient;
