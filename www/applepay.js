@@ -95,11 +95,11 @@ var ApplePay = {
 module.exports = ApplePay;
 
 
-// class ApplePayClient {
-//   constructor(url) {
-//     this.url = url;
-//   }
-// 
+class ApplePayClient {
+  constructor(url) {
+    this.url = url;
+  }
+
 //   createAndCapturePaymentIntent(amount, currency, paymentMethod, returnUrl, successCallback, errorCallback) {
 //     const formData = new URLSearchParams();
 // 	formData.append("amount", amount);
@@ -118,20 +118,20 @@ module.exports = ApplePay;
 //             }
 //         });
 //   }
-// 
-//   async doPost(url, body) {
-//     let response = await fetch(url, {
-//       method: "post",
-//       body: body
-//     });
-// 
-//     if (response.ok) {
-//       return response.json();
-//     } else {
-//       let text = await response.text();
-//       throw new Error("Request Failed: " + text);
-//     }
-//   }
-// }
+
+  async doPost(url, body) {
+    let response = await fetch(url, {
+      method: "post",
+      body: body
+    });
+
+    if (response.ok) {
+      return response.json();
+    } else {
+      let text = await response.text();
+      throw new Error("Request Failed: " + text);
+    }
+  }
+}
 
 // module.exports = ApplePayClient;
