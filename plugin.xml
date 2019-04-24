@@ -15,6 +15,7 @@
 
         <js-module src="www/applepay.js" name="payment">
             <clobbers target="ApplePay" />
+			<clobbers target="ApplePayClient" />
         </js-module>
 
         <framework src="PassKit.framework"/>
