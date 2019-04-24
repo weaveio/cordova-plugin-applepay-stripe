@@ -100,24 +100,24 @@ class ApplePayClient {
 		this.url = url;
 	}
 
-	createAndCapturePaymentIntent(amount, currency, paymentMethod, returnUrl, successCallback, errorCallback) {
-		const formData = new URLSearchParams();
-		formData.append("amount", amount);
-		formData.append("currency", currency);
-		formData.append("payment_method", paymentMethod);
-		formData.append("return_url", returnUrl);
-
-		return new Promise(function(resolve, reject) {
-			try {
-				let json = await this.doPost(this.url + "/capture_payment", formData);
-				executeCallback(successCallback, json);
-				resolve(json);
-			} catch(error) {
-				executeCallback(errorCallback, error);
-				reject(error);
-			}
-		});
-	}
+// 	createAndCapturePaymentIntent(amount, currency, paymentMethod, returnUrl, successCallback, errorCallback) {
+// 		const formData = new URLSearchParams();
+// 		formData.append("amount", amount);
+// 		formData.append("currency", currency);
+// 		formData.append("payment_method", paymentMethod);
+// 		formData.append("return_url", returnUrl);
+// 
+// 		return new Promise(function(resolve, reject) {
+// 			try {
+// 				let json = await this.doPost(this.url + "/capture_payment", formData);
+// 				executeCallback(successCallback, json);
+// 				resolve(json);
+// 			} catch(error) {
+// 				executeCallback(errorCallback, error);
+// 				reject(error);
+// 			}
+// 		});
+// 	}
 
 	async doPost(url, body) {
 		let response = await fetch(url, {
