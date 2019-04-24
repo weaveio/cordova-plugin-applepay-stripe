@@ -110,16 +110,16 @@ class ApplePayClient {
 		const me = this;
 
 		return new Promise(function(resolve, reject) {
-			try {
-				(async () => {
+			(async () => {
+				try {
 					let json = await me.doPost(me.url + "/capture_payment", formData);
 					executeCallback(successCallback, json);
 					resolve(json);
-				})();
-			} catch(error) {
-				executeCallback(errorCallback, error);
-				reject(error);
-			}
+				} catch(error) {
+					executeCallback(errorCallback, error);
+					reject(error);
+				}
+			})();
 		});
 	}
 
