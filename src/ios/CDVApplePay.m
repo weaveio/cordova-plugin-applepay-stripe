@@ -25,6 +25,7 @@
 @interface CDVApplePay () <SAPConfirmViewControllerDelegate>
 @property (nonatomic, strong) SAPConfirmViewController *confirmViewController;
 @property (nonatomic, strong) CDVInvokedUrlCommand *paymentCommand;
+@property (nonatomic, strong) PKPaymentRequest *paymentRequest;
 @end
 
 @implementation CDVApplePay
@@ -50,9 +51,135 @@
     NSLog(@"ApplePay appleMerchantIdentifier == %@", appleMerchantIdentifier);
     [[STPPaymentConfiguration sharedConfiguration] setPublishableKey:stripePublishableKey];
     [[STPPaymentConfiguration sharedConfiguration] setAppleMerchantIdentifier:appleMerchantIdentifier];
-
-
 }
+
+#pragma mark - Public
+
+- (void)canMakePayments:(CDVInvokedUrlCommand*)command
+{
+    if ([PKPaymentAuthorizationViewController canMakePayments]) {
+        if ((floor(NSFoundationVersionNumber) < NSFoundationVersionNumber_iOS_8_0)) {
+            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            return;
+        } else if ([[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion){9, 0, 0}]) {
+            if ([PKPaymentAuthorizationViewController canMakePaymentsUsingNetworks:supportedPaymentNetworks capabilities:(merchantCapabilities)]) {
+                CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: @"This device can make payments and has a supported card"];
+                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+                return;
+            } else {
+                CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device can make payments but has no supported cards"];
+                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+                return;
+            }
+        } else if ([[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion){8, 0, 0}]) {
+            if ([PKPaymentAuthorizationViewController canMakePaymentsUsingNetworks:supportedPaymentNetworks]) {
+                CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: @"This device can make payments and has a supported card"];
+                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+                return;
+            } else {
+                CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device can make payments but has no supported cards"];
+                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+                return;
+            }
+        } else {
+            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            return;
+        }
+    } else {
+        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+        return;
+    }
+}
+
+- (void)completeLastTransaction:(CDVInvokedUrlCommand*)command
+{
+    if (self.paymentAuthorizationBlock) {
+
+        NSString *paymentAuthorizationStatusString = [command.arguments objectAtIndex:0];
+        NSDictionary *intentObject = [command.arguments objectAtIndex:1];
+
+        NSLog(@"ApplePay completeLastTransaction == %@, intentObject = %@", paymentAuthorizationStatusString, intentObject);
+
+        PKPaymentAuthorizationStatus paymentAuthorizationStatus = [self paymentAuthorizationStatusFromArgument:paymentAuthorizationStatusString];
+        self.paymentAuthorizationBlock(paymentAuthorizationStatus);
+
+        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: @"Payment status applied."];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+
+    }
+}
+
+- (void)confirmAndMakePaymentRequest:(CDVInvokedUrlCommand*)command {
+    NSArray<PKPaymentSummaryItem *> *items = [self itemsFromArguments:command.arguments];
+    double total = 0.0;
+
+    for (PKPaymentSummaryItem *item in items) {
+        total += item.amount.doubleValue;
+    }
+
+    if (total > 0 && [PKPaymentAuthorizationViewController canMakePayments] == YES) {
+        [self showConfirm:total command:command];
+    } else {
+        CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Cannot make payments"];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+    }
+}
+
+- (void)makePaymentRequest:(CDVInvokedUrlCommand*)command
+{
+    self.paymentCallbackId = command.callbackId;
+
+    NSLog(@"Stripe deviceSupportsApplePay == %s", [Stripe deviceSupportsApplePay] ? "true" : "false");
+    NSLog(@"ApplePay canMakePayments == %s", [PKPaymentAuthorizationViewController canMakePayments]? "true" : "false");
+    if ([PKPaymentAuthorizationViewController canMakePayments] == NO) {
+        [self hideConfirm];
+        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
+        [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
+        return;
+    }
+
+    // reset any lingering callbacks, incase the previous payment failed.
+    self.paymentAuthorizationBlock = nil;
+
+    NSString * appleMerchantIdentifier = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"AppleMerchantIdentifier"];
+    PKPaymentRequest *request = [Stripe paymentRequestWithMerchantIdentifier:appleMerchantIdentifier
+                                                                     country:[self countryCodeFromArguments:command.arguments]
+                                                                    currency:[self currencyCodeFromArguments:command.arguments]];
+
+    // Different version of iOS support different networks, (ie Discover card is iOS9+; not part of my project, so ignoring).
+    request.supportedNetworks = supportedPaymentNetworks;
+
+    request.merchantCapabilities = merchantCapabilities;
+
+    // All this data is loaded from the Cordova object passed in. See documentation.
+    [request setMerchantIdentifier:appleMerchantIdentifier];
+    [request setRequiredBillingAddressFields:[self billingAddressRequirementFromArguments:command.arguments]];
+    [request setRequiredShippingAddressFields:[self shippingAddressRequirementFromArguments:command.arguments]];
+    [request setShippingType:[self shippingTypeFromArguments:command.arguments]];
+    [request setShippingMethods:[self shippingMethodsFromArguments:command.arguments]];
+    [request setPaymentSummaryItems:[self itemsFromArguments:command.arguments]];
+    self.paymentRequest = request;
+
+    NSLog(@"ApplePay request == %@", request);
+
+    PKPaymentAuthorizationViewController *authVC = [[PKPaymentAuthorizationViewController alloc] initWithPaymentRequest:request];
+
+    authVC.delegate = self;
+
+    if (authVC == nil) {
+        [self hideConfirm];
+        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"PKPaymentAuthorizationViewController was nil."];
+        [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
+        return;
+    }
+
+    [self.confirmViewController presentViewController:authVC animated:YES completion:nil];
+}
+
+#pragma mark - Helpers
 
 - (NSMutableDictionary*)applyABRecordBillingAddress:(ABRecordRef)address forDictionary:(NSMutableDictionary*)response {
     NSString *address1;
@@ -204,46 +331,6 @@
     return response;
 }
 
-
-- (void)canMakePayments:(CDVInvokedUrlCommand*)command
-{
-    if ([PKPaymentAuthorizationViewController canMakePayments]) {
-        if ((floor(NSFoundationVersionNumber) < NSFoundationVersionNumber_iOS_8_0)) {
-            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
-            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-            return;
-        } else if ([[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion){9, 0, 0}]) {
-            if ([PKPaymentAuthorizationViewController canMakePaymentsUsingNetworks:supportedPaymentNetworks capabilities:(merchantCapabilities)]) {
-                CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: @"This device can make payments and has a supported card"];
-                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-                return;
-            } else {
-                CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device can make payments but has no supported cards"];
-                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-                return;
-            }
-        } else if ([[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion){8, 0, 0}]) {
-            if ([PKPaymentAuthorizationViewController canMakePaymentsUsingNetworks:supportedPaymentNetworks]) {
-                CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: @"This device can make payments and has a supported card"];
-                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-                return;
-            } else {
-                CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device can make payments but has no supported cards"];
-                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-                return;
-            }
-        } else {
-            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
-            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-            return;
-        }
-    } else {
-        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-        return;
-    }
-}
-
 - (NSString *)countryCodeFromArguments:(NSArray *)arguments
 {
     NSString *countryCode = [[arguments objectAtIndex:0] objectForKey:@"countryCode"];
@@ -385,110 +472,8 @@
     return PKPaymentAuthorizationStatusFailure;
 }
 
-- (void)completeLastTransaction:(CDVInvokedUrlCommand*)command
-{
-    if (self.paymentAuthorizationBlock) {
-
-        NSString *paymentAuthorizationStatusString = [command.arguments objectAtIndex:0];
-        NSDictionary *intentObject = [command.arguments objectAtIndex:1];
-
-        NSLog(@"ApplePay completeLastTransaction == %@, intentObject = %@", paymentAuthorizationStatusString, intentObject);
-
-        PKPaymentAuthorizationStatus paymentAuthorizationStatus = [self paymentAuthorizationStatusFromArgument:paymentAuthorizationStatusString];
-        self.paymentAuthorizationBlock(paymentAuthorizationStatus);
-
-        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: @"Payment status applied."];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-
-    }
-}
-
-- (void)confirmAndMakePaymentRequest:(CDVInvokedUrlCommand*)command {
-    NSArray<PKPaymentSummaryItem *> *items = [self itemsFromArguments:command.arguments];
-    double total = 0.0;
-
-    for (PKPaymentSummaryItem *item in items) {
-        total += item.amount.doubleValue;
-    }
-
-    if (total > 0 && [PKPaymentAuthorizationViewController canMakePayments] == YES) {
-        [self showConfirm:total command:command];
-    } else {
-        CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Cannot make payments"];
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-    }
-}
-
-- (void)makePaymentRequest:(CDVInvokedUrlCommand*)command
-{
-    self.paymentCallbackId = command.callbackId;
-
-    NSLog(@"Stripe deviceSupportsApplePay == %s", [Stripe deviceSupportsApplePay] ? "true" : "false");
-    NSLog(@"ApplePay canMakePayments == %s", [PKPaymentAuthorizationViewController canMakePayments]? "true" : "false");
-    if ([PKPaymentAuthorizationViewController canMakePayments] == NO) {
-        [self hideConfirm];
-        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
-        [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
-        return;
-    }
-
-    // reset any lingering callbacks, incase the previous payment failed.
-    self.paymentAuthorizationBlock = nil;
-
-    NSString * appleMerchantIdentifier = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"AppleMerchantIdentifier"];
-    // Old version
-    // PKPaymentRequest *request = [PKPaymentRequest new];
-    PKPaymentRequest *request = [Stripe paymentRequestWithMerchantIdentifier:appleMerchantIdentifier];
-
-    // Different version of iOS support different networks, (ie Discover card is iOS9+; not part of my project, so ignoring).
-    request.supportedNetworks = supportedPaymentNetworks;
-
-    request.merchantCapabilities = merchantCapabilities;
-
-    // All this data is loaded from the Cordova object passed in. See documentation.
-    [request setCurrencyCode:[self currencyCodeFromArguments:command.arguments]];
-    [request setCountryCode:[self countryCodeFromArguments:command.arguments]];
-    [request setMerchantIdentifier:appleMerchantIdentifier];
-    [request setRequiredBillingAddressFields:[self billingAddressRequirementFromArguments:command.arguments]];
-    [request setRequiredShippingAddressFields:[self shippingAddressRequirementFromArguments:command.arguments]];
-    [request setShippingType:[self shippingTypeFromArguments:command.arguments]];
-    [request setShippingMethods:[self shippingMethodsFromArguments:command.arguments]];
-    [request setPaymentSummaryItems:[self itemsFromArguments:command.arguments]];
-
-    NSLog(@"ApplePay request == %@", request);
-
-    PKPaymentAuthorizationViewController *authVC = [[PKPaymentAuthorizationViewController alloc] initWithPaymentRequest:request];
-
-    authVC.delegate = self;
-
-    if (authVC == nil) {
-        [self hideConfirm];
-        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"PKPaymentAuthorizationViewController was nil."];
-        [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
-        return;
-    }
-
-    [self.confirmViewController presentViewController:authVC animated:YES completion:nil];
-}
-
-- (void)paymentAuthorizationViewControllerDidFinish:(PKPaymentAuthorizationViewController *)controller
-{
-    NSLog(@"paymentAuthorizationViewControllerDidFinish");
-    [self.confirmViewController dismissViewControllerAnimated:YES completion:^{
-        [self hideConfirm];
-    }];
-
-    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:NO];
-    [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
-}
-
-- (NSDictionary*) formatPaymentForApplication:(PKPayment *)payment {
+- (NSMutableDictionary*) formatPaymentForApplication:(PKPayment *)payment {
     NSString *paymentData = [payment.token.paymentData base64EncodedStringWithOptions:0];
-
-    //    NSDictionary *response = @{
-    //                               @"paymentData":paymentData,
-    //                               @"transactionIdentifier":payment.token.transactionIdentifier
-    //                               };
 
     NSMutableDictionary *response = [[NSMutableDictionary alloc] init];
 
@@ -632,29 +617,6 @@
     return response;
 }
 
-- (void)paymentAuthorizationViewController:(PKPaymentAuthorizationViewController *)controller
-                       didAuthorizePayment:(PKPayment *)payment
-                                completion:(void (^)(PKPaymentAuthorizationStatus status))completion
-{
-    NSLog(@"CDVApplePay: didAuthorizePayment");
-
-    [[STPAPIClient sharedClient] createTokenWithPayment:payment 
-                            completion:^(STPToken * _Nullable token, NSError * _Nullable error) {        
-        NSMutableDictionary* response = [self formatPaymentForApplication:payment];
-        NSLog(@"Stripe token == %@", token.tokenId);        
-        if (token) {
-            [response setObject:token.tokenId forKey:@"stripeToken"];
-        }
-        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:response];
-        [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
-    }];
-
-    if (completion) {
-        self.paymentAuthorizationBlock = completion;
-    }
-}
-
-
 - (PKShippingMethod *)shippingMethodWithIdentifier:(NSString *)idenfifier detail:(NSString *)detail label:(NSString *)label amount:(NSDecimalNumber *)amount
 {
     PKShippingMethod *shippingMethod = [PKShippingMethod new];
@@ -666,6 +628,15 @@
     return shippingMethod;
 }
 
+- (NSDecimalNumber *)totalAmount {
+    NSDecimalNumber *total = [[NSDecimalNumber alloc] initWithDouble:0.0];
+    for (PKPaymentSummaryItem *item in self.paymentRequest.paymentSummaryItems) {
+        total = [total decimalNumberByAdding:item.amount];
+    }
+    return total;
+}
+
+#pragma mark - Confirm Controller Actions
 
 - (void)showConfirm:(double)total command:(CDVInvokedUrlCommand *)command {
     self.paymentCommand = command;
@@ -697,8 +668,73 @@
             [weakSelf.viewController dismissViewControllerAnimated:YES completion:nil];
             weakSelf.confirmViewController = nil;
             weakSelf.paymentCommand = nil;
+            weakSelf.paymentRequest = nil;
         }
     });
+}
+
+#pragma mark - PKPaymentAuthorizationViewControllerDelegate
+
+- (void)paymentAuthorizationViewControllerDidFinish:(PKPaymentAuthorizationViewController *)controller
+{
+    NSLog(@"paymentAuthorizationViewControllerDidFinish");
+    [self.confirmViewController dismissViewControllerAnimated:YES completion:^{
+        [self hideConfirm];
+    }];
+
+    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:NO];
+    [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
+}
+
+- (void)paymentAuthorizationViewController:(PKPaymentAuthorizationViewController *)controller
+                       didAuthorizePayment:(PKPayment *)payment
+                                completion:(void (^)(PKPaymentAuthorizationStatus status))completion
+{
+    NSLog(@"CDVApplePay: didAuthorizePayment");
+
+    __weak CDVApplePay *weakSelf = self;
+
+    void(^handleError)(NSString*) = ^void(NSString *message) {
+        [weakSelf hideConfirm];
+        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:message];
+        [weakSelf.commandDelegate sendPluginResult:result callbackId:weakSelf.paymentCallbackId];
+    };
+
+    [[STPAPIClient sharedClient] createTokenWithPayment:payment
+         completion:^(STPToken * _Nullable token, NSError * _Nullable error) {
+             NSMutableDictionary* response = [self formatPaymentForApplication:payment];
+             NSLog(@"Stripe token == %@", token.tokenId);
+             if (token) {
+                 response[@"stripeToken"] = token.tokenId;
+                 response[@"amount"] = [NSString stringWithFormat:@"%f", [weakSelf totalAmount].doubleValue];
+                 response[@"currency"] = weakSelf.paymentRequest.currencyCode;
+
+                 STPPaymentMethodCardParams *cardParams = [STPPaymentMethodCardParams new];
+                 cardParams.token = token.tokenId;
+                 STPPaymentMethodParams *paymentMethodParams = [STPPaymentMethodParams paramsWithCard:cardParams billingDetails:nil metadata:nil];
+
+                 [[STPAPIClient sharedClient] createPaymentMethodWithParams:paymentMethodParams completion:^(STPPaymentMethod * __nullable paymentMethod, NSError * __nullable error){
+                     if (paymentMethod != nil) {
+                         response[@"paymentMethod"] = paymentMethod.stripeId;
+                         NSLog(@"response = %@", response);
+                         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:response];
+                         [weakSelf.commandDelegate sendPluginResult:result callbackId:weakSelf.paymentCallbackId];
+                     } else {
+                         NSString *errorMessage = error.localizedDescription;
+                         if (errorMessage == nil) {
+                             errorMessage = @"Could not create payment method";
+                         }
+                         handleError(errorMessage);
+                     }
+                 }];
+             } else {
+                 handleError(@"Empty Stripe token");
+             }
+         }];
+
+    if (completion) {
+        self.paymentAuthorizationBlock = completion;
+    }
 }
 
 #pragma mark - SAPConfirmViewControllerDelegate
@@ -718,11 +754,6 @@
 }
 
 - (void)SAPConfirmViewControllerDidConfirm:(SAPConfirmViewController *)controller {
-//    [self hideConfirm];
-//
-//    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:YES];
-//    [self.commandDelegate sendPluginResult:pluginResult callbackId:self.paymentCommand.callbackId];
-
     [self makePaymentRequest:self.paymentCommand];
 }
 
