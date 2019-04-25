@@ -702,12 +702,11 @@
 
     [[STPAPIClient sharedClient] createTokenWithPayment:payment
          completion:^(STPToken * _Nullable token, NSError * _Nullable error) {
-             NSMutableDictionary* response = [self formatPaymentForApplication:payment];
+             NSMutableDictionary* createIntentDict = [NSMutableDictionary dictionary];
              NSLog(@"Stripe token == %@", token.tokenId);
              if (token) {
-                 response[@"stripeToken"] = token.tokenId;
-                 response[@"amount"] = [NSString stringWithFormat:@"%f", [weakSelf totalAmount].doubleValue];
-                 response[@"currency"] = weakSelf.paymentRequest.currencyCode;
+                 createIntentDict[@"amount"] = [NSString stringWithFormat:@"%f", [weakSelf totalAmount].doubleValue];
+                 createIntentDict[@"currency"] = weakSelf.paymentRequest.currencyCode;
 
                  STPPaymentMethodCardParams *cardParams = [STPPaymentMethodCardParams new];
                  cardParams.token = token.tokenId;
@@ -715,9 +714,9 @@
 
                  [[STPAPIClient sharedClient] createPaymentMethodWithParams:paymentMethodParams completion:^(STPPaymentMethod * __nullable paymentMethod, NSError * __nullable error){
                      if (paymentMethod != nil) {
-                         response[@"paymentMethod"] = paymentMethod.stripeId;
-                         NSLog(@"response = %@", response);
-                         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:response];
+                         createIntentDict[@"paymentMethod"] = paymentMethod.stripeId;
+                         NSLog(@"createIntentDict = %@", createIntentDict);
+                         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:createIntentDict];
                          [weakSelf.commandDelegate sendPluginResult:result callbackId:weakSelf.paymentCallbackId];
                      } else {
                          NSString *errorMessage = error.localizedDescription;
