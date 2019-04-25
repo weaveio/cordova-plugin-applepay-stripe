@@ -26,6 +26,7 @@
 @property (nonatomic, strong) SAPConfirmViewController *confirmViewController;
 @property (nonatomic, strong) CDVInvokedUrlCommand *paymentCommand;
 @property (nonatomic, strong) PKPaymentRequest *paymentRequest;
+@property (nonatomic, strong) STPRedirectContext *redirectContext;
 @end
 
 @implementation CDVApplePay
@@ -103,12 +104,46 @@
 
         NSLog(@"ApplePay completeLastTransaction == %@, intentObject = %@", paymentAuthorizationStatusString, intentObject);
 
-        PKPaymentAuthorizationStatus paymentAuthorizationStatus = [self paymentAuthorizationStatusFromArgument:paymentAuthorizationStatusString];
-        self.paymentAuthorizationBlock(paymentAuthorizationStatus);
+        void(^sendSuccessResult)(void) = ^(void) {
+            PKPaymentAuthorizationStatus paymentAuthorizationStatus = [self paymentAuthorizationStatusFromArgument:paymentAuthorizationStatusString];
+            self.paymentAuthorizationBlock(paymentAuthorizationStatus);
 
-        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: @"Payment status applied."];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: @"Payment status applied."];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+        };
 
+        void(^sendFailureResult)(NSString *) = ^(NSString *message) {
+            PKPaymentAuthorizationStatus paymentAuthorizationStatus = PKPaymentAuthorizationStatusFailure;
+            self.paymentAuthorizationBlock(paymentAuthorizationStatus);
+
+            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:message];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+        };
+
+        STPPaymentIntent *paymentIntent = [STPPaymentIntent decodedObjectFromAPIResponse:intentObject];
+        NSLog(@"paymentIntent.status = %d", paymentIntent.status);
+        if (paymentIntent.status == STPPaymentIntentStatusRequiresAction) {
+            // Note you must retain this for the duration of the redirect flow - it dismisses any presented view controller upon deallocation.
+            self.redirectContext = [[STPRedirectContext alloc] initWithPaymentIntent:paymentIntent completion:^(NSString *clientSecret, NSError *redirectError) {
+                // Fetch the latest status of the Payment Intent if necessary
+                [[STPAPIClient sharedClient] retrievePaymentIntentWithClientSecret:clientSecret completion:^(STPPaymentIntent *paymentIntent, NSError *error) {
+                    // Check paymentIntent.status
+                    if (paymentIntent.status == STPPaymentIntentStatusSucceeded) {
+                        sendSuccessResult();
+                    }
+                }];
+            }];
+            if (self.redirectContext) {
+                // opens SFSafariViewController to the necessary URL
+                [self.redirectContext startRedirectFlowFromViewController:self.confirmViewController];
+            } else {
+                // This PaymentIntent action is not yet supported by the SDK.
+                sendFailureResult(@"This PaymentIntent action is not yet supported by the SDK");
+            }
+        } else {
+            // Show success message
+            sendSuccessResult();
+        }
     }
 }
 
@@ -669,6 +704,7 @@
             weakSelf.confirmViewController = nil;
             weakSelf.paymentCommand = nil;
             weakSelf.paymentRequest = nil;
+            weakSelf.redirectContext = nil;
         }
     });
 }
