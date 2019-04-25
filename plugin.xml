@@ -22,6 +22,12 @@
 
         <header-file src="src/ios/CDVApplePay.h"/>
         <source-file src="src/ios/CDVApplePay.m"/>
+        
+		<header-file src="src/ios/SAPConfirmViewController.h"/>
+        <source-file src="src/ios/SAPConfirmViewController.m"/>
+        
+		<header-file src="src/ios/AppDelegate+PaymentIntents.h"/>
+        <source-file src="src/ios/AppDelegate+PaymentIntents.m"/>
 
         <config-file target="config.xml" parent="/*">
 	        <feature name="ApplePay">
