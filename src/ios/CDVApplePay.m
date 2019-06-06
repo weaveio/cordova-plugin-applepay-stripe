@@ -137,7 +137,8 @@
     }
 
     if (total > 0 && [PKPaymentAuthorizationViewController canMakePayments] == YES) {
-        [self showConfirm:total command:command];
+//        [self showConfirm:total command:command];
+        [self makePaymentRequest:command];
     } else {
         CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Cannot make payments"];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
