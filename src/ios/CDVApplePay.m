@@ -1,14 +1,11 @@
 #import "CDVApplePay.h"
 @import AddressBook;
 @import Stripe;
-#import "SAPConfirmViewController.h"
 #import "AppDelegate+PaymentIntents.h"
 
 #pragma mark - CDVApplePay implementation
 
-@interface CDVApplePay () <SAPConfirmViewControllerDelegate>
-@property (nonatomic, strong) SAPConfirmViewController *confirmViewController;
-@property (nonatomic, strong) CDVInvokedUrlCommand *paymentCommand;
+@interface CDVApplePay ()
 @property (nonatomic, strong) PKPaymentRequest *paymentRequest;
 @property (nonatomic, strong) STPRedirectContext *redirectContext;
 @end
@@ -116,7 +113,7 @@
             }];
             if (self.redirectContext) {
                 // opens SFSafariViewController to the necessary URL
-                [self.redirectContext startRedirectFlowFromViewController:self.confirmViewController];
+                [self.redirectContext startRedirectFlowFromViewController:self.viewController];
             } else {
                 // This PaymentIntent action is not yet supported by the SDK.
                 sendFailureResult(@"This PaymentIntent action is not yet supported by the SDK");
@@ -137,7 +134,6 @@
     }
 
     if (total > 0 && [PKPaymentAuthorizationViewController canMakePayments] == YES) {
-//        [self showConfirm:total command:command];
         [self makePaymentRequest:command];
     } else {
         CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Cannot make payments"];
@@ -152,7 +148,6 @@
     NSLog(@"Stripe deviceSupportsApplePay == %s", [Stripe deviceSupportsApplePay] ? "true" : "false");
     NSLog(@"ApplePay canMakePayments == %s", [PKPaymentAuthorizationViewController canMakePayments]? "true" : "false");
     if ([PKPaymentAuthorizationViewController canMakePayments] == NO) {
-        [self hideConfirm];
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
         [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
         return;
@@ -187,13 +182,12 @@
     authVC.delegate = self;
 
     if (authVC == nil) {
-        [self hideConfirm];
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"PKPaymentAuthorizationViewController was nil."];
         [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
         return;
     }
 
-    [self.confirmViewController presentViewController:authVC animated:YES completion:nil];
+    [self.viewController presentViewController:authVC animated:YES completion:nil];
 }
 
 #pragma mark - Helpers
@@ -653,52 +647,12 @@
     return total;
 }
 
-#pragma mark - Confirm Controller Actions
-
-- (void)showConfirm:(double)total command:(CDVInvokedUrlCommand *)command {
-    self.paymentCommand = command;
-
-    SAPConfirmViewController *controller = [[SAPConfirmViewController alloc] initWithTotal:total];
-    controller.delegate = self;
-    self.confirmViewController = controller;
-
-    __block UINavigationController *navController = [[UINavigationController alloc] initWithRootViewController:controller];
-    __weak CDVApplePay* weakSelf = self;
-
-    // Run later to avoid the "took a long time" log message.
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [weakSelf.viewController presentViewController:navController animated:YES completion:nil];
-    });
-}
-
-- (void)hideConfirm {
-    if (self.confirmViewController == nil) {
-        NSLog(@"Tried to hide controller after it was closed");
-        return;
-    }
-
-    __weak CDVApplePay* weakSelf = self;
-
-    // Run later to avoid the "took a long time" log message.
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (weakSelf.confirmViewController != nil) {
-            [weakSelf.viewController dismissViewControllerAnimated:YES completion:nil];
-            weakSelf.confirmViewController = nil;
-            weakSelf.paymentCommand = nil;
-            weakSelf.paymentRequest = nil;
-            weakSelf.redirectContext = nil;
-        }
-    });
-}
-
 #pragma mark - PKPaymentAuthorizationViewControllerDelegate
 
 - (void)paymentAuthorizationViewControllerDidFinish:(PKPaymentAuthorizationViewController *)controller
 {
     NSLog(@"paymentAuthorizationViewControllerDidFinish");
-    [self.confirmViewController dismissViewControllerAnimated:YES completion:^{
-        [self hideConfirm];
-    }];
+    [self.viewController dismissViewControllerAnimated:YES completion:nil];
 
     CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:NO];
     [self.commandDelegate sendPluginResult:result callbackId:self.paymentCallbackId];
@@ -713,7 +667,6 @@
     __weak CDVApplePay *weakSelf = self;
 
     void(^handleError)(NSString*) = ^void(NSString *message) {
-        [weakSelf hideConfirm];
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:message];
         [weakSelf.commandDelegate sendPluginResult:result callbackId:weakSelf.paymentCallbackId];
     };
@@ -752,26 +705,6 @@
     if (completion) {
         self.paymentAuthorizationBlock = completion;
     }
-}
-
-#pragma mark - SAPConfirmViewControllerDelegate
-
-- (void)SAPConfirmViewControllerDidCancel:(SAPConfirmViewController *)controller {
-    [self hideConfirm];
-
-    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:NO];
-    [self.commandDelegate sendPluginResult:pluginResult callbackId:self.paymentCommand.callbackId];
-}
-
-- (void)SAPConfirmViewControllerDidFail:(SAPConfirmViewController *)controller error:(NSError *)error {
-    [self hideConfirm];
-
-    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:error.localizedDescription];
-    [self.commandDelegate sendPluginResult:pluginResult callbackId:self.paymentCommand.callbackId];
-}
-
-- (void)SAPConfirmViewControllerDidConfirm:(SAPConfirmViewController *)controller {
-    [self makePaymentRequest:self.paymentCommand];
 }
 
 @end
