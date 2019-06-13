@@ -704,9 +704,6 @@
              NSMutableDictionary* createIntentDict = [NSMutableDictionary dictionary];
              NSLog(@"Stripe token == %@", token.tokenId);
              if (token) {
-                 createIntentDict[@"amount"] = [NSString stringWithFormat:@"%f", [weakSelf totalAmount].doubleValue];
-                 createIntentDict[@"currency"] = weakSelf.paymentRequest.currencyCode;
-
                  STPPaymentMethodCardParams *cardParams = [STPPaymentMethodCardParams new];
                  cardParams.token = token.tokenId;
                  STPPaymentMethodParams *paymentMethodParams = [STPPaymentMethodParams paramsWithCard:cardParams billingDetails:nil metadata:nil];

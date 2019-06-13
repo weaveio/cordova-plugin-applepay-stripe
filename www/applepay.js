@@ -95,7 +95,7 @@ class ApplePayClient {
 		return new Promise(function(resolve, reject) {
 			(async () => {
 				try {
-					let json = await me.callRequest("put", me.url + "/orders/" + orderId + "/payment", formData);
+					let json = await me.callRequest("put", me.url + "/orders/" + orderId + "/payment/", formData);
 					executeCallback(successCallback, json);
 					resolve(json);
 				} catch(error) {
