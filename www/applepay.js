@@ -48,26 +48,6 @@ var ApplePay = {
         });
 
     },
-    
-    /**
-     * Shows custom confirmation screen then opens the Apple Pay sheet and shows the order information.
-     * @param {Function} [successCallback] - Optional success callback, recieves message object.
-     * @param {Function} [errorCallback] - Optional error callback, recieves message object.
-     * @returns {Promise}
-     */
-    confirmAndMakePaymentRequest: function(order, successCallback, errorCallback) {
-
-        return new Promise(function(resolve, reject) {
-            exec(function(message) {
-                executeCallback(successCallback, message);
-                resolve(message);
-            }, function(message) {
-                executeCallback(errorCallback, message);
-                reject(message);
-            }, 'ApplePay', 'confirmAndMakePaymentRequest', [order]);
-        });
-
-    },
 
     /**
      * While the Apple Pay sheet is still open, and the callback from the `makePaymentRequest` has completed,
@@ -100,19 +80,22 @@ class ApplePayClient {
 		this.url = url;
 	}
 
-	createAndCapturePaymentIntent(amount, currency, paymentMethod, returnUrl, successCallback, errorCallback) {
+	createAndCapturePaymentIntent(orderId, paymentMethod, intentId, returnUrl, successCallback, errorCallback) {
 		const formData = new URLSearchParams();
-		formData.append("amount", amount);
-		formData.append("currency", currency);
-		formData.append("payment_method", paymentMethod);
-		formData.append("return_url", returnUrl);
+		
+		if (paymentMethod) {
+			formData.append("token", paymentMethod);
+			formData.append("return_url", returnUrl);
+		} else if (intentId) {
+			formData.append("intent_id", intentId);
+		}
 		
 		const me = this;
 
 		return new Promise(function(resolve, reject) {
 			(async () => {
 				try {
-					let json = await me.doPost(me.url + "/capture_payment", formData);
+					let json = await me.callRequest("put", me.url + "/orders/" + orderId + "/payment", formData);
 					executeCallback(successCallback, json);
 					resolve(json);
 				} catch(error) {
@@ -123,9 +106,9 @@ class ApplePayClient {
 		});
 	}
 
-	async doPost(url, body) {
+	async callRequest(httpMethod, url, body) {
 		let response = await fetch(url, {
-			method: "post",
+			method: httpMethod,
 			body: body
 		});
 
