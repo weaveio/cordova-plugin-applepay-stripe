@@ -5,6 +5,8 @@
 Updated to provide additional data access to the plugin, test calls, and compatibility
 with newer versions of Cordova. Uses a Promise based interface in JavaScript.
 
+Further updated to generate a [Payment Method](https://stripe.com/docs/api/payment_methods) instead of payment token, which can be used with [Payment Intents](https://stripe.com/docs/payments/payment-intents) to create payments that comply with Strong Customer Authentication (SCA).
+
 This plugin is integrated to Stripe, if you want an integrated-less plugin you can use
 [cordova-plugin-applepay](https://www.npmjs.com/package/cordova-plugin-applepay)
 
@@ -52,14 +54,14 @@ If in your `catch` you get the message `This device can make payments but has no
 normal 'Pay with Apple Bay' buttons as per the Apple Guidelines.
 
 ## ApplePay.makePaymentRequest
-Request a payment with Apple Pay, returns a Promise that once resolved, has the payment token.
+Request a payment with Apple Pay, returns a Promise that once resolved, has the payment method.
 In your `order`, you will set parameters like the merchant ID, country, address requirements,
 order information etc. See a full example of an order at the end of this document.
 
 ```
 ApplePay.makePaymentRequest(order)
     .then((paymentResponse) => {
-        // User approved payment, token generated.
+        // User approved payment, paymentMethod generated.
     })
     .catch((message) => {
         // Error or user cancelled.
@@ -68,9 +70,9 @@ ApplePay.makePaymentRequest(order)
 
 ### Example Response
 
-The `paymentResponse` is an object with the keys that contain the token itself,
-this is what you'll need to pass along to your payment processor. Also, if you requested
-billing or shipping addresses, this information is also included.
+The `paymentResponse` is an object with the keys that contain the paymentData itself, and the ID of the generated paymentMethod.
+This is what you'll need to pass along to your payment processor.
+Also, if you requested billing or shipping addresses, this information is also included.
 
 ```
 {
@@ -81,7 +83,7 @@ billing or shipping addresses, this information is also included.
     "billingISOCountryCode": "gb",
     "shippingNameLast": "Name",
     "paymentData": "<BASE64 ENCODED TOKEN WILL APPEAR HERE>",
-    "stripeToken": "<STRIPE TOKEN>",
+    "paymentMethod": "<PAYMENTMETHOD ID>",
     "shippingNameFirst": "First",
     "billingAddressState": "London",
     "billingAddressStreet": "Street 1\n",
@@ -100,7 +102,7 @@ billing or shipping addresses, this information is also included.
 
 ## ApplePay.completeLastTransaction
 Once the makePaymentRequest has been resolved successfully, the device will be waiting for a completion event.
-This means, that the application must proceed with the token authorisation and return a success, failure, or other validation error. Once this has been passed back, the Apple Pay sheet will be dismissed via an animation.
+This means, that the application expects to proceed with the token authorisation and return a success, failure, or other validation error. Once this has been passed back, the Apple Pay sheet will be dismissed via an animation.
 
 ```
 ApplePay.completeLastTransaction('success');
@@ -158,22 +160,21 @@ ApplePay.makePaymentRequest(
     .then((paymentResponse) => {
         // The user has authorized the payment.
 
-        // Handle the token, asynchronously, i.e. pass to your merchant bank to
+        // Handle the paymentData asynchronously, i.e. pass to your merchant bank to
         // action the payment, then once finished, depending on the outcome:
 
         // Here is an example implementation:
 
-        // MyPaymentProvider.authorizeApplePayToken(token.paymentData)
-        //    .then((captureStatus) => {
-        //        // Displays the 'done' green tick and closes the sheet.
-        //        ApplePay.completeLastTransaction('success');
-        //    })
-        //    .catch((err) => {
-        //        // Displays the 'failed' red cross.
-        //        ApplePay.completeLastTransaction('failure');
-        //    });
-
-
+        let paymentMethod = paymentResponse.paymentMethod;
+        MyPaymentProvider.makeOrder(orderDetails, paymentMethod)
+           .then((captureStatus) => {
+               // Displays the 'done' green tick and closes the sheet.
+               ApplePay.completeLastTransaction('success');
+           })
+           .catch((err) => {
+               // Displays the 'failed' red cross.
+               ApplePay.completeLastTransaction('failure');
+           });
     })
     .catch((e) => {
         // Failed to open the Apple Pay sheet, or the user cancelled the payment.
@@ -198,13 +199,15 @@ properties are:
  * `phone`
 
 ## Limitations and TODOs
-* *Supported Payment Networks hard coded* (Visa, Mastercard, American Express) - This should be updated to be passed along in the order, but is rarely changed and trivial to alter in code.
+* *Supported Payment Networks hard coded* (Visa, Mastercard, American Express, Discover, JCB) - This should be updated to be passed along in the order, but is rarely changed and trivial to alter in code.
 * *Merchant Capabilities hard coded (3DS)* - This should be updated to be passed along in the order, but is rarely changed and trivial to alter in code.
 * *Event binds for delivery method selector* - An event can be raised when the customer
 selects different delivery options, so the merchant can update the delivery charges.
+* *Support for changing Stripe Key and Apple Merchant Identifier* - Functions can be added to allow changes to the StripePublishableKey and AppleMerchantIdentifier on the fly, providing more flexibility.
 
 ## License
 
 This project is licensed under *GNU General Public License v3.0*.
 
-It is based on the work of [Sam Kelleher](https://samkelleher.com/). It is an alteration of an older project originally started by [@jbeuckm](https://github.com/jbeuckm)
+It is based on the iterative work of [vadubov](https://github.com/vadubov), [Adaptive Media India
+](http://adaptivemedia.in), [Monoku](https://github.com/monoku), and [Sam Kelleher](https://samkelleher.com/). It is an alteration of an older project originally started by [@jbeuckm](https://github.com/jbeuckm)
