@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/monoku/cordova-plugin-applepay-stripe"
+    "url": "https://github.com/dynamifylimited/cordova-plugin-applepay-stripe"
   },
   "keywords": [],
   "author": {
-    "name": "David Avellaneda",
-    "email": "david@monoku.com",
-    "url": "https://monoku.com/"
+    "name": "Nicholas Huang",
+    "email": "nicholas.huang@dynamify.com",
+    "url": "https://dynamify.com/"
   },
   "license": "GPL-3.0",
-  "homepage": "https://github.com/monoku/cordova-plugin-applepay-stripe"
+  "homepage": "https://github.com/dynamifylimited/cordova-plugin-applepay-stripe"
 }

@@ -15,16 +15,12 @@
 
         <js-module src="www/applepay.js" name="payment">
             <clobbers target="ApplePay" />
-			<clobbers target="ApplePayClient" />
         </js-module>
 
         <framework src="PassKit.framework"/>
 
         <header-file src="src/ios/CDVApplePay.h"/>
         <source-file src="src/ios/CDVApplePay.m"/>
-        
-		<header-file src="src/ios/AppDelegate+PaymentIntents.h"/>
-        <source-file src="src/ios/AppDelegate+PaymentIntents.m"/>
 
         <config-file target="config.xml" parent="/*">
 	        <feature name="ApplePay">
