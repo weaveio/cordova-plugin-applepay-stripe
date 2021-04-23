@@ -1,6 +1,6 @@
 #import "CDVApplePay.h"
 @import AddressBook;
-@import Stripe;
+#import <Stripe/Stripe-Swift.h>
 
 @implementation CDVApplePay
 
@@ -87,7 +87,7 @@
 {
     self.paymentCallbackId = command.callbackId;
 
-    NSLog(@"Stripe deviceSupportsApplePay == %s", [Stripe deviceSupportsApplePay] ? "true" : "false");
+    NSLog(@"Stripe deviceSupportsApplePay == %s", [StripeAPI deviceSupportsApplePay] ? "true" : "false");
     NSLog(@"ApplePay canMakePayments == %s", [PKPaymentAuthorizationViewController canMakePayments]? "true" : "false");
     if ([PKPaymentAuthorizationViewController canMakePayments] == NO) {
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"This device cannot make payments."];
@@ -99,7 +99,7 @@
     self.paymentAuthorizationBlock = nil;
 
     NSString * appleMerchantIdentifier = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"AppleMerchantIdentifier"];
-    PKPaymentRequest *request = [Stripe paymentRequestWithMerchantIdentifier:appleMerchantIdentifier
+    PKPaymentRequest *request = [StripeAPI paymentRequestWithMerchantIdentifier:appleMerchantIdentifier
         country:[self countryCodeFromArguments:command.arguments]
         currency:[self currencyCodeFromArguments:command.arguments]];
 
