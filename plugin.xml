@@ -43,6 +43,7 @@
         <podspec>
             <config>
                 <source url="https://github.com/brightcove/BrightcoveSpecs.git" />
+                <source url="https://github.com/CocoaPods/Specs.git"/>
             </config>
             <pods use-frameworks="true">
                 <pod name="Stripe" spec="~> 21.4" />
