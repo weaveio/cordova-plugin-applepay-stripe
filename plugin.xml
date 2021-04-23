@@ -40,8 +40,14 @@
         <!-- Downloaded here: https://github.com/stripe/stripe-ios/releases/latest -->
         <!-- <framework src="src/ios/libs/Stripe.framework" custom="true" />-->
 
-        <framework src="Stripe" type="podspec" spec="~> 21.4" />
-
+        <podspec>
+            <config>
+                <source url="https://github.com/brightcove/BrightcoveSpecs.git" />
+            </config>
+            <pods use-frameworks="true">
+                <pod name="Stripe" spec="~> 21.4" />
+            </pods>
+        </podspec>
     </platform>
 
 </plugin>
